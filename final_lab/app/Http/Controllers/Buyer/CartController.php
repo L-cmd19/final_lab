@@ -1,7 +1,8 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Buyer;
 
+use App\Http\Controllers\Controller;
 use App\Models\Keranjang; // Huruf Besar K
 use App\Models\Produk;    // Huruf Besar P, Bahasa Indonesia
 use Illuminate\Http\Request;

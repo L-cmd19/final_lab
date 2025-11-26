@@ -8,40 +8,42 @@ use Illuminate\Support\Facades\Auth;
 
 class HomeController extends Controller
 {
-    /**
-     * Menampilkan halaman beranda publik (Homepage) dengan daftar produk.
-     */
     public function index(Request $request)
     {
-        // 1. Logika untuk Pencarian
+        // 1. Logika Pencarian
         $query = $request->input('search');
-        
         $productsQuery = Produk::query();
 
         if ($query) {
             $productsQuery->where('nama_produk', 'like', '%' . $query . '%');
         }
 
-        // 2. Tampilkan 12 produk dengan relasi
+        // 2. Tampilkan 12 produk
         $products = $productsQuery->inRandomOrder()
                                    ->limit(12)
                                    ->with(['store', 'category']) 
                                    ->get();
 
-        // 3. Logika Redirect Berdasarkan Role
+        // 3. Logika Redirect (MODIFIKASI DI SINI)
         if (Auth::check()) {
-            /** @var \App\Models\User $user */ // Memberitahu editor bahwa ini Model User kita
+            /** @var \App\Models\User $user */
             $user = Auth::user();
             
-            // Cek apakah user null (safety check)
             if ($user) {
                 if ($user->isAdmin()) {
                     return redirect()->route('admin.dashboard');
                 } elseif ($user->isApprovedSeller()) {
                     return redirect()->route('seller.dashboard');
-                } elseif ($user->isSeller() && $user->seller_status === 'pending') {
-                    return redirect()->route('seller.pending');
-                }
+                } 
+                
+                // --- HAPUS ATAU KOMENTARI BAGIAN INI ---
+                // elseif ($user->isSeller() && $user->seller_status === 'pending') {
+                //    return redirect()->route('seller.pending');
+                // }
+                // ---------------------------------------
+                
+                // Dengan menghapus bagian di atas, Seller Pending akan lanjut ke bawah
+                // dan melihat tampilan 'welcome' (Katalog Produk).
             }
         }
         
