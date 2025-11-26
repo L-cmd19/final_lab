@@ -5,39 +5,29 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+// --- PERBAIKAN IMPORT ---
+use App\Models\Order;
+use App\Models\Produk; // Ditambahkan untuk relasi product()
+// -------------------------
+
 class OrderItem extends Model
 {
     use HasFactory;
 
-    // Nama tabel sudah mengikuti konvensi 'order_items'
-    // Jadi, kita tidak perlu mendefinisikan $table
-
-    // Kolom yang dapat diisi (mass assignable)
     protected $fillable = [
         'order_id', 
-        'produk_id',              // Foreign key ke tabel 'produks'
+        'produk_id',
         'jumlah', 
-        'harga_saat_pemesanan'    // Harga produk saat order dibuat
+        'harga_saat_pemesanan'
     ];
 
-    // =================================================================
-    // RELATIONS (HUBUNGAN)
-    // =================================================================
-
-    /**
-     * Hubungan M:1. OrderItem adalah bagian dari satu Order.
-     */
     public function order()
     {
         return $this->belongsTo(Order::class);
     }
 
-    /**
-     * Hubungan M:1. OrderItem merujuk pada satu Product.
-     * Menggunakan foreign key 'produk_id'
-     */
     public function product()
     {
-        return $this->belongsTo(Produk::class, 'produk_id');
+        return $this->belongsTo(Produk::class, 'produk_id'); // DIKOREKSI: Menggunakan Model Produk
     }
 }

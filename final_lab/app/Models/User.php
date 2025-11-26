@@ -7,6 +7,13 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
+// --- PERBAIKAN IMPORT ---
+use App\Models\Store;
+use App\Models\Keranjang; // Diperbaiki dari 'keranjang'
+use App\Models\Order;
+use App\Models\Review;
+// -------------------------
+
 class User extends Authenticatable
 {
     // trait HasApiTokens dihapus dari sini
@@ -44,7 +51,7 @@ class User extends Authenticatable
 
     public function carts()
     {
-        return $this->hasMany(keranjang::class);
+        return $this->hasMany(Keranjang::class); // DIKOREKSI
     }
 
     public function orders()
@@ -77,7 +84,7 @@ class User extends Authenticatable
         return $this->role === 'seller' && $this->seller_status === 'approved';
     }
 
-    public function isBuyer(): bool
+    public function isBuyer()
     {
         return $this->role === 'buyer';
     }
