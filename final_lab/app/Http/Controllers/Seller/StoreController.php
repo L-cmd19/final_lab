@@ -25,6 +25,7 @@ class StoreController extends Controller
             return redirect()->route('seller.pending')->with('warning', 'Toko Anda belum disetujui Admin.');
         }
         
+        // Ambil data toko (bisa null jika belum dibuat)
         $store = $seller->store;
 
         return view('seller.store.index', compact('store'));
@@ -42,30 +43,35 @@ class StoreController extends Controller
         $request->validate([
             'nama_toko' => 'required|string|max:255',
             'deskripsi' => 'nullable|string',
-            // Pastikan kolom ini sesuai dengan database (meskipun typo 'gamabar', harus konsisten)
+            // Pastikan validasi gambar aman (nullable)
             'gamabar' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048', 
         ]);
 
+        // Ambil toko yang sudah ada
         $store = $seller->store;
+        
         // Exclude 'gamabar' dari request karena kita proses manual
         $data = $request->except(['_token', 'gamabar']);
         
         if ($request->hasFile('gamabar')) {
-            // Hapus gambar lama jika ada
-            if ($store && $store->gamabar && Storage::exists('public/stores/' . $store->gamabar)) {
-                Storage::delete('public/stores/' . $store->gamabar);
+            // Hapus gambar lama jika toko sudah ada dan punya gambar
+            // PERBAIKAN: Gunakan disk 'public' dan path 'stores/' (bukan public/stores/)
+            if ($store && $store->gamabar && Storage::disk('public')->exists('stores/' . $store->gamabar)) {
+                Storage::disk('public')->delete('stores/' . $store->gamabar);
             }
             
-            $imagePath = $request->file('gamabar')->store('public/stores');
+            // PERBAIKAN: Simpan ke folder 'stores' di disk 'public'
+            $imagePath = $request->file('gamabar')->store('stores', 'public');
             $data['gamabar'] = basename($imagePath);
         }
 
         if ($store) {
+            // Jika toko sudah ada, Update
             $store->update($data);
             $message = 'Informasi toko berhasil diperbarui!';
         } else {
-            // Create Store baru
-            $store = Store::create(array_merge($data, [
+            // Jika toko belum ada, Create baru
+            Store::create(array_merge($data, [
                 'user_id' => $seller->id,
             ]));
             $message = 'Toko berhasil dibuat!';

@@ -3,41 +3,38 @@
 namespace App\Http\Controllers\Seller;
 
 use App\Http\Controllers\Controller;
-use App\Models\Order;
+use App\Models\Kategori;
+use App\Models\Produk;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Storage;
 
 class SellerProductController extends Controller
 {
     /**
-     * Menampilkan daftar pesanan yang masuk khusus untuk produk-produk di toko Seller.
+     * Menampilkan daftar produk.
      */
-    public function index(Request $request)
+    public function index()
     {
         /** @var \App\Models\User $seller */
         $seller = Auth::user();
-        
-        // 1. Otorisasi
+
         if (!$seller->isApprovedSeller() || !$seller->store) {
-            abort(403, 'Akses ditolak. Anda bukan Seller yang disetujui atau belum memiliki toko.');
+            abort(403, 'Akses ditolak. Anda tidak memiliki toko atau belum disetujui.');
         }
 
-        // 2. Dapatkan ID produk milik toko seller
-        $productIds = $seller->store->products->pluck('id');
+        $products = Produk::where('store_id', $seller->store->id)
+                           ->with('category')
+                           ->latest()
+                           ->paginate(10);
 
-        // 3. Cari Order yang mengandung produk-produk tersebut
-        $incomingOrders = Order::whereHas('items', function ($query) use ($productIds) {
-            $query->whereIn('produk_id', $productIds);
-        })
-        ->with(['user', 'items.product']) 
-        ->latest()
-        ->paginate(15);
-
-        return view('seller.orders.index', compact('incomingOrders'));
+        return view('seller.products.index', compact('products'));
     }
 
-    public function show(Order $order)
+    /**
+     * Menampilkan form tambah produk.
+     */
+    public function create()
     {
         /** @var \App\Models\User $seller */
         $seller = Auth::user();
@@ -46,53 +43,131 @@ class SellerProductController extends Controller
             abort(403, 'Akses ditolak.');
         }
 
-        // Dapatkan ID produk milik Seller
-        $sellerProductIds = $seller->store->products->pluck('id')->toArray();
+        // Ambil semua data kategori untuk dropdown
+        $categories = Kategori::all(); 
 
-        // Cek apakah di dalam order ini ada barang milik seller
-        $hasSellerProduct = $order->items->contains(function ($item) use ($sellerProductIds) {
-            return in_array($item->produk_id, $sellerProductIds); 
-        });
-
-        if (!$hasSellerProduct) {
-            abort(403, 'Akses ditolak. Pesanan ini tidak terkait dengan toko Anda.');
-        }
-        
-        // Load relasi
-        $order->load('user', 'items.product.store');
-
-        return view('seller.orders.show', compact('order'));
+        return view('seller.products.create', compact('categories'));
     }
 
-    public function updateStatus(Request $request, Order $order)
+    /**
+     * Menyimpan produk baru.
+     */
+    public function store(Request $request)
     {
         /** @var \App\Models\User $seller */
         $seller = Auth::user();
 
         if (!$seller->isApprovedSeller() || !$seller->store) {
-            return response()->json(['message' => 'Unauthorized'], 403);
+            abort(403, 'Akses ditolak.');
         }
 
-        $sellerProductIds = $seller->store->products->pluck('id')->toArray();
-
-        // Verifikasi Kepemilikan
-        $hasSellerProduct = $order->items->contains(function ($item) use ($sellerProductIds) {
-            return in_array($item->produk_id, $sellerProductIds);
-        });
-
-        if (!$hasSellerProduct) {
-            return response()->json(['message' => 'Pesanan tidak terkait dengan toko Anda'], 403);
-        }
-
-        // Validasi
         $request->validate([
-            'status' => ['required', 'string', Rule::in(['processed', 'shipped', 'completed', 'cancelled'])],
+            'nama_produk' => 'required|string|max:255',
+            'deskripsi' => 'required|string',
+            'harga' => 'required|numeric|min:0',
+            'stok' => 'required|integer|min:0',
+            'kategori_id' => 'required|exists:kategoris,id',
+            'gambar' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
 
-        // Update
-        $order->status = $request->status;
-        $order->save();
+        // Simpan gambar ke disk 'public' di folder 'products'
+        $imagePath = $request->file('gambar')->store('products', 'public');
+        $imageName = basename($imagePath);
 
-        return redirect()->route('seller.orders.index')->with('success', 'Status pesanan berhasil diperbarui menjadi ' . $request->status . '.');
+        Produk::create([
+            'store_id' => $seller->store->id,
+            'kategori_id' => $request->kategori_id,
+            'nama_produk' => $request->nama_produk,
+            'deskripsi' => $request->deskripsi,
+            'harga' => $request->harga,
+            'stok' => $request->stok,
+            'gambar' => $imageName,
+        ]);
+
+        return redirect()->route('seller.products.index')->with('success', 'Produk berhasil ditambahkan!');
+    }
+
+    /**
+     * Menampilkan form edit produk.
+     */
+    public function edit(Produk $product)
+    {
+        /** @var \App\Models\User $seller */
+        $seller = Auth::user();
+        
+        // Cek kepemilikan produk
+        if (!$seller->isApprovedSeller() || !$seller->store || $product->store_id !== $seller->store->id) {
+            abort(403, 'Anda tidak berhak mengedit produk ini.');
+        }
+
+        $categories = Kategori::all();
+
+        return view('seller.products.edit', compact('product', 'categories'));
+    }
+
+    /**
+     * Mengupdate produk.
+     */
+    public function update(Request $request, Produk $product)
+    {
+        /** @var \App\Models\User $seller */
+        $seller = Auth::user();
+        
+        if (!$seller->isApprovedSeller() || !$seller->store || $product->store_id !== $seller->store->id) {
+            abort(403, 'Anda tidak berhak memperbarui produk ini.');
+        }
+
+        $request->validate([
+            'nama_produk' => 'required|string|max:255',
+            'deskripsi' => 'required|string',
+            'harga' => 'required|numeric|min:0',
+            'stok' => 'required|integer|min:0',
+            'kategori_id' => 'required|exists:kategoris,id',
+            'gambar' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+        ]);
+        
+        $data = $request->except(['_token', '_method', 'gambar']);
+        
+        if ($request->hasFile('gambar')) {
+            // Hapus gambar lama
+            if ($product->gambar && Storage::disk('public')->exists('products/' . $product->gambar)) {
+                Storage::disk('public')->delete('products/' . $product->gambar);
+            }
+            
+            // PERBAIKAN DI SINI: Gunakan format yang sama dengan store()
+            // Jangan pakai 'public/products', tapi 'products', 'public'
+            $imagePath = $request->file('gambar')->store('products', 'public');
+            $data['gambar'] = basename($imagePath);
+        }
+
+        $product->update($data);
+
+        return redirect()->route('seller.products.index')->with('success', 'Produk berhasil diperbarui!');
+    }
+
+    /**
+     * Menghapus produk.
+     */
+    public function destroy(Produk $product)
+    {
+        /** @var \App\Models\User $seller */
+        $seller = Auth::user();
+
+        if (!$seller->isApprovedSeller() || !$seller->store || $product->store_id !== $seller->store->id) {
+            abort(403, 'Anda tidak berhak menghapus produk ini.');
+        }
+
+        try {
+            // Hapus gambar fisik
+            if ($product->gambar && Storage::disk('public')->exists('products/' . $product->gambar)) {
+                Storage::disk('public')->delete('products/' . $product->gambar);
+            }
+
+            $product->delete();
+
+            return redirect()->route('seller.products.index')->with('success', 'Produk berhasil dihapus!');
+        } catch (\Exception $e) {
+            return redirect()->route('seller.products.index')->with('error', 'Gagal menghapus produk.');
+        }
     }
 }

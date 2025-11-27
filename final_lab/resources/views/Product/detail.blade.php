@@ -5,17 +5,21 @@
     <div class="bg-white shadow-xl overflow-hidden flex flex-col md:flex-row">
         {{-- Gambar --}}
         <div class="md:w-1/2 h-[500px] bg-gray-100 flex items-center justify-center overflow-hidden">
-            <img src="{{ asset('storage/products/' . $product->gambar) }}" alt="{{ $product->nama_produk }}" class="object-cover h-full w-full">
+            @if($product->gambar)
+                <img src="{{ asset('storage/products/' . $product->gambar) }}" alt="{{ $product->nama_produk }}" class="object-cover h-full w-full">
+            @else
+                <div class="text-gray-400 font-bold">NO IMAGE</div>
+            @endif
         </div>
         
         {{-- Info --}}
         <div class="md:w-1/2 p-8 md:p-12 flex flex-col justify-center bg-zinc-50 relative">
-            {{-- Hiasan P5 --}}
             <div class="absolute top-0 right-0 w-24 h-24 bg-red-600 p5-skew -mr-10 -mt-10 z-0"></div>
 
             <div class="relative z-10">
                 <span class="bg-black text-white px-3 py-1 text-xs font-bold uppercase tracking-widest mb-4 inline-block">
-                    {{ $product->category->nama_kategori ?? 'Umum' }}
+                    {{-- PERBAIKAN: Gunakan ?->category --}}
+                    {{ $product->category?->nama_kategori ?? 'Umum' }}
                 </span>
                 <h1 class="text-4xl font-bold mb-4 p5-font">{{ $product->nama_produk }}</h1>
                 <div class="text-3xl font-bold text-red-600 mb-6">
@@ -27,11 +31,13 @@
                 <div class="flex items-center mb-6">
                     <span class="text-yellow-500 text-xl mr-2">★</span>
                     <span class="font-bold text-lg">{{ number_format($averageRating, 1) }}</span>
-                    <span class="text-gray-400 ml-2 text-sm">({{ $product->reviews->count() }} Reviews)</span>
+                    {{-- PERBAIKAN: Gunakan ?->reviews --}}
+                    <span class="text-gray-400 ml-2 text-sm">({{ $product->reviews?->count() ?? 0 }} Reviews)</span>
                 </div>
 
                 <div class="border-t border-gray-300 py-6">
-                    <div class="mb-2 font-bold text-sm">TOKO: <span class="text-red-600">{{ $product->store->nama_toko ?? 'Unknown' }}</span></div>
+                    {{-- PERBAIKAN: Gunakan ?->store --}}
+                    <div class="mb-2 font-bold text-sm">TOKO: <span class="text-red-600">{{ $product->store?->nama_toko ?? 'Unknown' }}</span></div>
                     <div class="mb-6 font-bold text-sm">STOK: {{ $product->stok }} Unit</div>
 
                     @auth

@@ -28,7 +28,23 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->intended(route('dashboard', absolute: false));
+        // --- PERBAIKAN: LOGIKA REDIRECT SESUAI ROLE ---
+        /** @var \App\Models\User $user */
+        $user = $request->user();
+
+        if ($user->isAdmin()) {
+            return redirect()->intended(route('admin.dashboard', absolute: false));
+        } 
+        
+        if ($user->isSeller()) {
+            if ($user->seller_status === 'pending') {
+                return redirect()->route('seller.pending');
+            }
+            return redirect()->intended(route('seller.dashboard', absolute: false));
+        }
+
+        // Default Buyer ke Home
+        return redirect()->intended(route('home', absolute: false));
     }
 
     /**
