@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Buyer;
 
 use App\Http\Controllers\Controller;
-use App\Models\Keranjang; // Huruf Besar K
-use App\Models\Produk;    // Huruf Besar P, Bahasa Indonesia
+use App\Models\Keranjang;
+use App\Models\Produk;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -15,18 +15,13 @@ class CartController extends Controller
         /** @var \App\Models\User $user */
         $user = Auth::user();
 
-        if (!$user->isBuyer()) {
+        // GANTI: isBuyer() -> canShop()
+        if (!$user->canShop()) {
             abort(403, 'Akses ditolak.');
         }
 
-        $cartItems = Keranjang::where('user_id', $user->id)
-                         ->with('product') // Pastikan relasi di Model Keranjang bernama 'product'
-                         ->get();
-
-        $subtotal = $cartItems->sum(function($item) {
-            // Asumsi relasi di Keranjang adalah 'product' yang mengarah ke model Produk
-            return $item->jumlah * $item->product->harga;
-        });
+        $cartItems = Keranjang::where('user_id', $user->id)->with('product')->get();
+        $subtotal = $cartItems->sum(fn($item) => $item->jumlah * $item->product->harga);
 
         return view('buyer.cart.index', compact('cartItems', 'subtotal'));
     }
@@ -36,8 +31,9 @@ class CartController extends Controller
         /** @var \App\Models\User $user */
         $user = Auth::user();
 
-        if (!$user || !$user->isBuyer()) {
-            return redirect()->route('login')->with('warning', 'Anda harus login sebagai Buyer.');
+        // GANTI: isBuyer() -> canShop()
+        if (!$user || !$user->canShop()) {
+            return redirect()->route('login')->with('warning', 'Silakan login untuk berbelanja.');
         }
 
         $request->validate([
@@ -46,9 +42,8 @@ class CartController extends Controller
         ]);
 
         $product = Produk::find($request->produk_id);
-        $quantity = $request->quantity;
-
-        if ($quantity > $product->stok) {
+        
+        if ($request->quantity > $product->stok) {
             return back()->with('error', 'Stok produk tidak mencukupi.');
         }
 
@@ -57,22 +52,20 @@ class CartController extends Controller
                         ->first();
 
         if ($cartItem) {
-            $newQuantity = $cartItem->jumlah + $quantity;
+            $newQuantity = $cartItem->jumlah + $request->quantity;
             if ($newQuantity > $product->stok) {
                  return back()->with('error', 'Penambahan melebihi stok.');
             }
             $cartItem->update(['jumlah' => $newQuantity]);
-            $message = 'Jumlah produk diperbarui.';
         } else {
             Keranjang::create([
                 'user_id' => $user->id,
                 'produk_id' => $product->id,
-                'jumlah' => $quantity,
+                'jumlah' => $request->quantity,
             ]);
-            $message = 'Produk ditambahkan ke keranjang!';
         }
 
-        return back()->with('success', $message);
+        return back()->with('success', 'Produk berhasil ditambahkan ke keranjang!');
     }
 
     public function update(Request $request, Keranjang $cart)
@@ -84,20 +77,15 @@ class CartController extends Controller
             abort(403, 'Akses ditolak.');
         }
 
-        $request->validate([
-            'jumlah' => 'required|integer|min:1',
-        ]);
+        $request->validate(['jumlah' => 'required|integer|min:1']);
         
-        $newQuantity = $request->jumlah;
-        $product = $cart->product;
-
-        if ($newQuantity > $product->stok) {
+        if ($request->jumlah > $cart->product->stok) {
             return back()->with('error', 'Stok tidak mencukupi.');
         }
 
-        $cart->update(['jumlah' => $newQuantity]);
+        $cart->update(['jumlah' => $request->jumlah]);
 
-        return back()->with('success', 'Jumlah diperbarui.');
+        return back()->with('success', 'Jumlah produk berhasil diperbarui.');
     }
 
     public function destroy(Keranjang $cart)
@@ -111,6 +99,6 @@ class CartController extends Controller
 
         $cart->delete();
 
-        return back()->with('success', 'Produk dihapus dari keranjang.');
+        return back()->with('success', 'Produk berhasil dihapus dari keranjang.');
     }
 }

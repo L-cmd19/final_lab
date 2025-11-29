@@ -4,11 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-
-// --- PERBAIKAN IMPORT ---
 use App\Models\User;
-use App\Models\Produk; // Ditambahkan untuk relasi products()
-// -------------------------
+use App\Models\Produk;
 
 class Store extends Model
 {
@@ -28,12 +25,13 @@ class Store extends Model
 
     public function products()
     {
-        return $this->hasMany(Produk::class); // DIKOREKSI: Menggunakan Model Produk
+        return $this->hasMany(Produk::class);
     }
     
+    // PERBAIKAN: Hitung rata-rata rating dari semua produk di toko ini
     public function averageRating()
     {
-        // Menggunakan withAvg untuk menghitung rata-rata rating dari relasi products->reviews
-        return $this->products()->withAvg('reviews', 'rating')->pluck('reviews_avg_rating')->avg();
+        // Ambil rata-rata kolom 'rating' dari tabel reviews yang terhubung lewat produk
+        return $this->products()->withAvg('reviews', 'rating')->get()->avg('reviews_avg_rating') ?? 0;
     }
 }

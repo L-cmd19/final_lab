@@ -5,12 +5,6 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-// --- PERBAIKAN IMPORT ---
-use App\Models\User;
-use App\Models\OrderItem;
-use App\Models\Review;
-// -------------------------
-
 class Order extends Model
 {
     use HasFactory;
@@ -38,9 +32,10 @@ class Order extends Model
         return $this->hasMany(OrderItem::class);
     }
     
-    public function review()
+    // PERBAIKAN: Ubah menjadi hasMany karena 1 order bisa banyak review (per produk)
+    public function reviews()
     {
-        return $this->hasOne(Review::class);
+        return $this->hasMany(Review::class);
     }
     
     public function getTotalQuantity(): int

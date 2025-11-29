@@ -14,7 +14,8 @@ class OrderHistoryController extends Controller
         /** @var \App\Models\User $user */
         $user = Auth::user();
 
-        if (!$user->isBuyer()) {
+        // GANTI: isBuyer() -> canShop()
+        if (!$user->canShop()) {
             abort(403, 'Akses ditolak.');
         }
 
@@ -31,12 +32,13 @@ class OrderHistoryController extends Controller
         /** @var \App\Models\User $user */
         $user = Auth::user();
 
+        // Cek kepemilikan order
         if ($order->user_id !== $user->id) {
             abort(403, 'Akses ditolak. Pesanan ini bukan milik Anda.');
         }
 
-        // Load relasi. Pastikan 'items.product' mengarah ke model Produk
-        $order->load(['items.product.store', 'review']);
+        // Load reviews (jamak) sesuai perbaikan model sebelumnya
+        $order->load(['items.product.store', 'reviews']);
 
         return view('buyer.order_history.show', compact('order'));
     }

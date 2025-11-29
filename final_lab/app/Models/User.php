@@ -7,29 +7,22 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-// --- PERBAIKAN IMPORT ---
+// Import Model Relasi
 use App\Models\Store;
-use App\Models\Keranjang; // Diperbaiki dari 'keranjang'
+use App\Models\Keranjang;
 use App\Models\Order;
 use App\Models\Review;
-// -------------------------
 
 class User extends Authenticatable
 {
-    // trait HasApiTokens dihapus dari sini
     use HasFactory, Notifiable; 
 
     protected $fillable = [
-        'name',
-        'email',
-        'password',
-        'role',
-        'seller_status',
+        'name', 'email', 'password', 'role', 'seller_status',
     ];
 
     protected $hidden = [
-        'password',
-        'remember_token',
+        'password', 'remember_token',
     ];
 
     protected function casts(): array
@@ -40,52 +33,25 @@ class User extends Authenticatable
         ];
     }
 
-    // =================================================================
-    // RELATIONS (HUBUNGAN)
-    // =================================================================
+    // RELASI
+    public function store() { return $this->hasOne(Store::class); }
+    public function carts() { return $this->hasMany(Keranjang::class); }
+    public function orders() { return $this->hasMany(Order::class); }
+    public function reviews() { return $this->hasMany(Review::class); }
 
-    public function store()
-    {
-        return $this->hasOne(Store::class);
-    }
-
-    public function carts()
-    {
-        return $this->hasMany(Keranjang::class); // DIKOREKSI
-    }
-
-    public function orders()
-    {
-        return $this->hasMany(Order::class);
-    }
-
-    public function reviews()
-    {
-        return $this->hasMany(Review::class);
-    }
-
-
-    // =================================================================
-    // HELPER METHODS (FUNGSI BANTUAN)
-    // =================================================================
-
-    public function isAdmin(): bool
-    {
-        return $this->role === 'admin';
-    }
-
-    public function isSeller(): bool
-    {
-        return $this->role === 'seller';
-    }
-
-    public function isApprovedSeller(): bool
-    {
+    // HELPER METHODS
+    public function isAdmin(): bool { return $this->role === 'admin'; }
+    public function isSeller(): bool { return $this->role === 'seller'; }
+    public function isBuyer(): bool { return $this->role === 'buyer'; }
+    
+    public function isApprovedSeller(): bool {
         return $this->role === 'seller' && $this->seller_status === 'approved';
     }
 
-    public function isBuyer()
+    // --- PERBAIKAN: Fungsi Baru canShop() ---
+    public function canShop(): bool
     {
-        return $this->role === 'buyer';
+        // Semua role (Admin, Seller, Buyer) boleh belanja
+        return in_array($this->role, ['admin', 'seller', 'buyer']);
     }
 }
